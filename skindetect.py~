@@ -1,0 +1,53 @@
+# USAGE
+# python detect.py --images images
+
+# import the necessary packages
+from __future__ import print_function
+from imutils.object_detection import non_max_suppression
+from imutils import paths
+import numpy as np
+import argparse
+import imutils
+import cv2
+
+# construct the argument parse and parse the arguments
+ap = argparse.ArgumentParser()
+ap.add_argument("-i", "--images", required=True, help="path to images directory")
+args = vars(ap.parse_args())
+#define the upper and lower boundaries of the HSV pixel
+# define the upper and lower boundaries of the HSV pixel
+# intensities to be considered 'skin'
+lower = np.array([0, 48, 80], dtype = "uint8")
+upper = np.array([255,223,196], dtype = "uint8")
+# initialize the HOG descriptor/person detector
+#hog = cv2.HOGDescriptor()
+#hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+
+# loop over the image paths
+imagePaths = list(paths.list_images(args["images"]))
+
+for imagePath in imagePaths:
+	# load the image and resize it to (1) reduce detection time
+	# and (2) improve detection accuracy
+	image = cv2.imread(imagePath)
+	frame = imutils.resize(image, width=min(400, image.shape[1]))
+	#orig = frame.copy()
+	converted = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+	skinMask = cv2.inRange(converted, lower, upper)
+
+	# apply a series of erosions and dilations to the mask
+	# using an elliptical kernel
+	kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
+	skinMask = cv2.erode(skinMask, kernel, iterations = 2)
+	skinMask = cv2.dilate(skinMask, kernel, iterations = 2)
+
+	# blur the mask to help remove noise, then apply the
+	# mask to the frame
+	skinMask = cv2.GaussianBlur(skinMask, (3, 3), 0)
+	skin = cv2.bitwise_and(frame, frame, mask = skinMask)
+
+	# show the skin in the image along with the mask
+	cv2.imshow("images", np.hstack([frame, skin]))
+
+	# if the 'q' key is pressed, stop the loop
+	if (cv2.waitKey(0)&0xff) == 27: break
